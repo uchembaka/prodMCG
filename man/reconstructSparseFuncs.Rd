@@ -2,7 +2,7 @@
 % Please edit documentation in R/reconstructSparseFunctions.R
 \name{reconstructSparseFuncs}
 \alias{reconstructSparseFuncs}
-\title{Reconstruct sparse functional data via Riemannian FPCA}
+\title{Reconstruct sparse functional data via Riemannian optimization}
 \usage{
 reconstructSparseFuncs(
   data,
@@ -10,145 +10,154 @@ reconstructSparseFuncs(
   npc = 2:5,
   grid_size = 101,
   basis_type = "bspline",
-  lambda = exp(seq(-3, 2, length.out = 10)),
-  tau = 10^(-6:1),
+  lambda = exp(-12:0),
+  tau = 10^(-6:-1),
   solver = "CG",
-  solver_control = list(maxit = 3e+05, trace = 1, Tolerance = 1e-04),
+  solver_control = list(maxit = 50000, trace = 0, Tolerance = 1e-04),
   obs_range = c(0, 1),
   init_coef = NULL,
-  plot_results = FALSE,
+  plot_results = TRUE,
   verbose = FALSE,
   mu_nbasis = 15,
   parallel = TRUE,
   n_cores = NULL,
-  cv_nfolds = 5,
-  tau_selection_method = "eigen_order",
-  selection_method = "aic",
-  bootstrap_parameters = list(compute = FALSE, B = 100, alpha = 0.05, method =
-    "residual")
+  LRPsOCV_parameters = list(R = 1, h = 1, m_min = 3, grid_search = FALSE),
+  seed = NULL,
+  scores_weights = NULL,
+  two_stage = TRUE,
+  share_tau = TRUE,
+  bootstrap_parameters = list(compute = FALSE, B = 200, alpha = 0.05, method =
+    "parametric")
 )
 }
 \arguments{
-\item{data}{Matrix or data frame with 3 columns: subject ID, observation time, observed value.}
+\item{data}{Matrix or data frame with 3 columns: subject ID, observation
+time, observed value.}
 
-\item{nbasis}{Integer or integer vector. Number of basis functions. If a vector, optimal
-nbasis is selected via cross-validation (lambda forced to 1e-6).}
+\item{nbasis}{Integer or integer vector. Number of basis functions. If a
+vector, optimal nbasis is selected via LRPsOCV (lambda forced to 1e-6).}
 
-\item{npc}{Integer or integer vector. Number of principal components. If a vector,
-optimal npc is selected via AIC.}
+\item{npc}{Integer or integer vector. Number of principal components.
+If a vector, optimal npc is selected via AIC (or jointly with nbasis/lambda
+via LRPsOCV when \code{LRPsOCV_parameters$grid_search = TRUE}).}
 
 \item{grid_size}{Integer. Number of grid points for evaluation (default 101).}
 
-\item{basis_type}{Character. Type of basis: "bspline" (default) or "fourier".}
+\item{basis_type}{Character. Type of basis: \code{"bspline"} (default) or
+\code{"fourier"}.}
 
-\item{lambda}{Numeric or numeric vector. Smoothing penalty. If a vector, optimal lambda
-is selected via cross-validation (nbasis must be fixed).}
+\item{lambda}{Numeric or numeric vector. Smoothing penalty. If a vector,
+optimal lambda is selected via LRPsOCV. When both \code{nbasis} and
+\code{lambda} are vectors, lambda is fixed to 1e-6 and only nbasis is
+selected (with a warning).}
 
-\item{tau}{Numeric or numeric vector. Ridge penalty for component ordering.
-If a vector, optimal tau is selected using the method specified by
-\code{tau_selection_method}.}
+\item{tau}{Numeric or numeric vector. Ridge penalty. If a vector, optimal
+tau is selected via eigenvalue ordering and convergence checking.}
 
-\item{solver}{Character. Optimization method: "CG" (default), "BFGS", or "L-BFGS-B".}
+\item{solver}{Character. Optimization method: \code{"CG"} (default),
+\code{"BFGS"}, or \code{"L-BFGS-B"}.}
 
 \item{solver_control}{List with solver control parameters:
 \itemize{
-  \item maxit: Maximum iterations (default 150000)
-  \item trace: Debug level (default 0)
-  \item Tolerance: Convergence tolerance (default 1e-4)
-}}
+  \item \code{maxit}: Maximum iterations (default 150000).
+  \item \code{trace}: Debug level (default 0).
+  \item \code{Tolerance}: Convergence tolerance (default 1e-4).
+}
+The user-supplied control is used for tau selection, parameter selection
+with fixed tau, and when all parameters are scalars. Internal fits that
+have warm starts from tau selection or parameter search use a faster
+internal control (maxit = 50000).}
 
-\item{obs_range}{Numeric vector of length 2. Observation time range (default c(0,1)).}
+\item{obs_range}{Numeric vector of length 2. Observation time range
+(default c(0,1)).}
 
-\item{init_coef}{NULL or list with components U (D x K matrix) and Xi (N x K matrix).
-Initial coefficient values for optimization.}
+\item{init_coef}{NULL or list with components U (D x K) and Xi (N x K).}
 
 \item{plot_results}{Logical. Plot AIC and CV results (default FALSE).}
 
 \item{verbose}{Logical. Print progress messages (default FALSE).}
 
-\item{mu_nbasis}{Integer. Number of basis functions for mean estimation (default 15).}
+\item{mu_nbasis}{Integer. Number of basis functions for mean estimation
+(default 15).}
 
-\item{parallel}{Logical. Use parallel computation for CV (default FALSE).}
+\item{parallel}{Logical. Use parallel computation (default FALSE).}
 
-\item{n_cores}{Integer or NULL. Number of cores for parallel computation.
-NULL uses detectCores() - 1.}
+\item{n_cores}{Integer or NULL. Number of cores; NULL uses detectCores()-1.}
 
-\item{cv_nfolds}{Integer. Number of folds for cross-validation (default 5).
-Must be a positive integer >= 2.}
-
-\item{tau_selection_method}{Character. Method for selecting tau when \code{tau}
-is a vector. One of:
-\itemize{
-  \item \code{"eigen_order"} (default): Searches for smallest tau that yields
-    correct eigenvalue ordering (two consecutive correct orderings). When
-    \code{parallel = TRUE}, fits ALL tau candidates in parallel, then applies
-    the selection logic on collected results. When \code{parallel = FALSE},
-    uses sequential search with early stopping.
-  \item \code{"aic"}: Fit all tau candidates in parallel and select the one
-    with minimum AIC. Always uses parallel computation.
-  \item \code{"cv"}: k-fold cross-validation over tau candidates with 1-SE
-    rule. Always uses parallel computation.
+\item{LRPsOCV_parameters}{A list controlling Leave-Random-Points-Out CV:
+\describe{
+  \item{\code{R}}{Number of random repetitions (default 1).}
+  \item{\code{h}}{Observations held out per curve per repetition
+    (actual hold-out is \code{min(h, n_i - 2)}; default 1).}
+  \item{\code{m_min}}{Minimum observations for a curve to participate
+    in the hold-out (default 3).}
+  \item{\code{grid_search}}{Logical. When \code{TRUE}, performs a joint
+    2-D LRPsOCV grid search instead of sequential selection. The grid
+    axes are determined by which parameter is a vector: if \code{nbasis}
+    is a vector the grid is nbasis x npc; if \code{lambda} is a vector
+    the grid is npc x lambda. Requires \code{npc} to also be a vector.
+    Default: \code{FALSE}.}
 }}
 
-\item{selection_method}{Character. Method for selecting lambda and nbasis when
-multiple candidates are provided. One of:
-\itemize{
-  \item \code{"cv"} (default): k-fold cross-validation with 1-SE rule.
-  \item \code{"aic"}: AIC-based selection (minimum AIC).
-}}
+\item{seed}{Integer or NULL. Random seed set once at the start of the
+function, making all downstream RNG usage reproducible: Riemannian
+initialization of U and Xi, and point sampling in LRPsOCV replications.
+Default NULL (no seed set).}
 
-\item{bootstrap_parameters}{List controlling bootstrap confidence intervals
-for the reconstructed trajectories (xHat). Elements:
+\item{scores_weights}{Optional numeric vector of length \code{max(npc)}.
+Component-specific ridge-penalty weights. When NULL, weights are set
+automatically (1:max(npc) or adaptively from Stage 1 eigenvalues when
+\code{two_stage = TRUE}).}
+
+\item{two_stage}{Logical. When TRUE a two-stage procedure sets adaptive
+ridge weights from Stage 1 eigenvalues. Ignored when \code{scores_weights}
+is supplied. Default: TRUE.}
+
+\item{share_tau}{Logical. When TRUE (default) and \code{two_stage = TRUE},
+reuse the Stage 1 tau in Stage 2. Requires \code{two_stage = TRUE}.}
+
+\item{bootstrap_parameters}{List controlling bootstrap CIs:
 \itemize{
-  \item \code{compute}: Logical. Whether to compute bootstrap CIs (default FALSE).
-  \item \code{B}: Integer. Number of bootstrap replicates (default 200).
-  \item \code{alpha}: Numeric. Significance level for (1-alpha)*100\% CIs (default 0.05).
-  \item \code{method}: Character. Bootstrap method: \code{"parametric"} (default)
-    keeps original scores fixed and samples fresh errors from N(0, sig2),
-    or \code{"residual"} resamples residuals from the original fit.
-}
-Model parameters are fixed from the original fit for both methods.}
+  \item \code{compute}: Logical (default FALSE).
+  \item \code{B}: Number of replicates (default 200).
+  \item \code{alpha}: Significance level (default 0.05).
+  \item \code{method}: \code{"parametric"} (default) or
+    \code{"residual"}.
+}}
 }
 \value{
 A list with components:
   \describe{
-    \item{U}{Orthonormal basis coefficient matrix (D x K)}
-    \item{Xi}{Score matrix (N x K)}
-    \item{xHat}{Reconstructed functions (N x G matrix)}
-    \item{Phi_mat}{Eigenfunction evaluations on grid (G x K)}
-    \item{eigenfunctions}{List of K eigenfunction fd objects}
-    \item{eigenValues}{Eigenvalues (variances of scores)}
-    \item{mu_function}{Mean function (fd object)}
-    \item{sig2}{Residual variance}
-    \item{npc}{Selected number of principal components}
-    \item{nbasis}{Selected number of basis functions}
-    \item{grid}{Evaluation grid}
-    \item{AIC}{AIC value of final model}
-    \item{AIC_tab}{Data frame of AIC values across npc candidates}
-    \item{AIC_tab_param}{Data frame of AIC values for lambda/nbasis selection
-      (when \code{selection_method = "aic"}). NULL if CV was used.}
-    \item{tau}{Selected/used tau value}
-    \item{lambda}{Selected/used lambda value}
-    \item{CV_results}{Cross-validation results (if applicable)}
-    \item{tau_results}{Tau selection results table (if tau was a vector).
-      For \code{"aic"}: data frame with tau, AIC, AIC_K, fval, aDF,
-      convergence, iter, correct_order, delta_AIC.
-      For \code{"cv"}: data frame with tau, mean_cv_error, se_cv_error,
-      n_converged.
-      For \code{"eigen_order"}: data frame with tau, AIC, AIC_K, fval,
-      aDF, convergence, iter, correct_order.}
-    \item{Fits}{List with fitted_values, residuals, var_explained}
-    \item{Data}{Full data object from fit}
-    \item{manOptim_output}{Raw ManifoldOptim output}
-    \item{xHat_CI}{List of N matrices (each G x 2 with columns "lower" and
-      "upper") for pointwise bootstrap confidence intervals. NULL if bootstrap
-      not computed.}
-    \item{call_args}{List of all arguments used}
+    \item{U}{Orthonormal basis coefficient matrix (D x K).}
+    \item{Xi}{Score matrix (N x K).}
+    \item{xHat}{Reconstructed functions (N x G matrix).}
+    \item{Phi_mat}{Eigenfunction evaluations on grid (G x K).}
+    \item{eigenfunctions}{List of K eigenfunction fd objects.}
+    \item{eigenValues}{Eigenvalues (variances of scores).}
+    \item{mu_function}{Mean function (fd object).}
+    \item{scores_weights}{Scores weights used.}
+    \item{sig2}{Residual variance.}
+    \item{npc}{Selected number of principal components.}
+    \item{nbasis}{Selected number of basis functions.}
+    \item{nbasis_selection}{LRPsOCV results for nbasis (if applicable).}
+    \item{grid}{Evaluation grid.}
+    \item{AIC}{AIC_K value of the final model.}
+    \item{AIC_tab}{Data frame of AIC_K values across npc candidates.}
+    \item{tau}{Selected tau value.}
+    \item{lambda}{Selected lambda value.}
+    \item{lambda_selection}{LRPsOCV results for lambda (if applicable).}
+    \item{grid_cv_results}{2-D LRPsOCV results table (if grid_search used).}
+    \item{tau_results}{Tau selection table (if tau was a vector).}
+    \item{Fits}{List: fitted_values, residuals, var_explained.}
+    \item{Data}{Full data object from the fit.}
+    \item{manOptim_output}{Raw ManifoldOptim output.}
+    \item{xHat_CI}{List of N matrices (G x 2: lower/upper bootstrap CIs),
+      or NULL.}
+    \item{call_args}{All arguments used.}
   }
 }
 \description{
-Main user-facing function that performs functional principal component
-analysis and curve reconstruction of sparse longitudinal data
- using Riemannian optimization on the product manifold
-Stiefel(D,K) x Euclidean(N,K).
+Main user-facing function that performs curve reconstruction and functional
+principal component analysis of sparse longitudinal data using Riemannian
+optimization on the product manifold Stiefel(D,K) x Euclidean(N,K).
 }

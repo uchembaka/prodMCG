@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // objective_manifold
-double objective_manifold(const arma::vec& x, const int D, const int K, const int N, const int stiefel_dim, const int total_dim, const Rcpp::List& orthB_list, const Rcpp::List& y_vec_list, const arma::mat& orthP, const double lambda, const double tau);
-RcppExport SEXP _prodMCG_objective_manifold(SEXP xSEXP, SEXP DSEXP, SEXP KSEXP, SEXP NSEXP, SEXP stiefel_dimSEXP, SEXP total_dimSEXP, SEXP orthB_listSEXP, SEXP y_vec_listSEXP, SEXP orthPSEXP, SEXP lambdaSEXP, SEXP tauSEXP) {
+double objective_manifold(const arma::vec& x, const int D, const int K, const int N, const int stiefel_dim, const int total_dim, const Rcpp::List& orthB_list, const Rcpp::List& y_vec_list, const arma::mat& orthP, const double lambda, const double tau, const arma::vec& ridge_weights);
+RcppExport SEXP _prodMCG_objective_manifold(SEXP xSEXP, SEXP DSEXP, SEXP KSEXP, SEXP NSEXP, SEXP stiefel_dimSEXP, SEXP total_dimSEXP, SEXP orthB_listSEXP, SEXP y_vec_listSEXP, SEXP orthPSEXP, SEXP lambdaSEXP, SEXP tauSEXP, SEXP ridge_weightsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -28,13 +28,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type orthP(orthPSEXP);
     Rcpp::traits::input_parameter< const double >::type lambda(lambdaSEXP);
     Rcpp::traits::input_parameter< const double >::type tau(tauSEXP);
-    rcpp_result_gen = Rcpp::wrap(objective_manifold(x, D, K, N, stiefel_dim, total_dim, orthB_list, y_vec_list, orthP, lambda, tau));
+    Rcpp::traits::input_parameter< const arma::vec& >::type ridge_weights(ridge_weightsSEXP);
+    rcpp_result_gen = Rcpp::wrap(objective_manifold(x, D, K, N, stiefel_dim, total_dim, orthB_list, y_vec_list, orthP, lambda, tau, ridge_weights));
     return rcpp_result_gen;
 END_RCPP
 }
 // gradient_manifold
-arma::vec gradient_manifold(const arma::vec& x, const int D, const int K, const int N, const int stiefel_dim, const int total_dim, const Rcpp::List& orthB_list, const Rcpp::List& y_vec_list, const arma::mat& orthP, const double lambda, const double tau);
-RcppExport SEXP _prodMCG_gradient_manifold(SEXP xSEXP, SEXP DSEXP, SEXP KSEXP, SEXP NSEXP, SEXP stiefel_dimSEXP, SEXP total_dimSEXP, SEXP orthB_listSEXP, SEXP y_vec_listSEXP, SEXP orthPSEXP, SEXP lambdaSEXP, SEXP tauSEXP) {
+arma::vec gradient_manifold(const arma::vec& x, const int D, const int K, const int N, const int stiefel_dim, const int total_dim, const Rcpp::List& orthB_list, const Rcpp::List& y_vec_list, const arma::mat& orthP, const double lambda, const double tau, const arma::vec& ridge_weights);
+RcppExport SEXP _prodMCG_gradient_manifold(SEXP xSEXP, SEXP DSEXP, SEXP KSEXP, SEXP NSEXP, SEXP stiefel_dimSEXP, SEXP total_dimSEXP, SEXP orthB_listSEXP, SEXP y_vec_listSEXP, SEXP orthPSEXP, SEXP lambdaSEXP, SEXP tauSEXP, SEXP ridge_weightsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -49,14 +50,15 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type orthP(orthPSEXP);
     Rcpp::traits::input_parameter< const double >::type lambda(lambdaSEXP);
     Rcpp::traits::input_parameter< const double >::type tau(tauSEXP);
-    rcpp_result_gen = Rcpp::wrap(gradient_manifold(x, D, K, N, stiefel_dim, total_dim, orthB_list, y_vec_list, orthP, lambda, tau));
+    Rcpp::traits::input_parameter< const arma::vec& >::type ridge_weights(ridge_weightsSEXP);
+    rcpp_result_gen = Rcpp::wrap(gradient_manifold(x, D, K, N, stiefel_dim, total_dim, orthB_list, y_vec_list, orthP, lambda, tau, ridge_weights));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_prodMCG_objective_manifold", (DL_FUNC) &_prodMCG_objective_manifold, 11},
-    {"_prodMCG_gradient_manifold", (DL_FUNC) &_prodMCG_gradient_manifold, 11},
+    {"_prodMCG_objective_manifold", (DL_FUNC) &_prodMCG_objective_manifold, 12},
+    {"_prodMCG_gradient_manifold", (DL_FUNC) &_prodMCG_gradient_manifold, 12},
     {NULL, NULL, 0}
 };
 

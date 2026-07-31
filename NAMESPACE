@@ -1,1 +1,22 @@
-exportPattern("^[[:alpha:]]+")
+useDynLib(prodMCG, .registration = TRUE)
+
+importFrom(Rcpp, sourceCpp)
+
+importFrom(fda, create.bspline.basis, create.fourier.basis, eval.basis,
+           eval.fd, fd, fdPar, smooth.basis, inprod, bsplinepen, fourierpen)
+
+importFrom(ManifoldOptim, get.manifold.params, get.solver.params,
+           get.product.defn, get.stiefel.defn, get.euclidean.defn,
+           manifold.optim)
+
+importFrom(parallel, makeCluster, stopCluster, detectCores,
+           clusterEvalQ, clusterExport, parLapply)
+
+importFrom(stats, sd, var, rnorm, runif, quantile)
+importFrom(graphics, plot, points, lines, arrows, abline, axis, grid,
+           legend, par, rect, text, rasterImage)
+importFrom(grDevices, terrain.colors, as.raster)
+
+export(reconstructSparseFuncs)
+export(compute_bootstrap)
+

@@ -2,7 +2,8 @@
 Riemann <- function(
     data, method = "RCG",
     mani.params = get.manifold.params(),
-    solver.params = get.solver.params(Max_Iteration = 150000, Tolerance = 1e-04, DEBUG = 0)
+    solver.params = get.solver.params(Max_Iteration = 150000, Tolerance = 1e-04,
+                                      DEBUG = 0)
 ) {
   prep_data <- data$prep_data
   basis_data <- data$basis_data
@@ -21,6 +22,7 @@ Riemann <- function(
   G <- prep_data$G
   lambda <- data$lambda
   tau <- data$tau
+  ridge_weights <- data$scores_weights
   init_coef <- data$init_coef
 
   mani.defn <- get.product.defn(
@@ -32,23 +34,23 @@ Riemann <- function(
   total_dim <- stiefel_dim + N * K
 
   mod <- Rcpp::Module("ManifoldOptim_module", PACKAGE = "ManifoldOptim")
+  rw <- if (is.null(ridge_weights)) 1:K else ridge_weights[1:K]
+
   prob <- new(
     mod$RProblem,
     function(x) objective_manifold(x, D, K, N, stiefel_dim, total_dim,
-                                   orthB_list, y_vec_list, orthP, lambda, tau),
+                                   orthB_list, y_vec_list, orthP, lambda, tau, rw),
     function(x) gradient_manifold(x, D, K, N, stiefel_dim, total_dim,
-                                  orthB_list, y_vec_list, orthP, lambda, tau)
+                                  orthB_list, y_vec_list, orthP, lambda, tau, rw)
   )
 
   if (!is.null(init_coef)) {
     U_init <- init_coef$U
     Xi_init <- init_coef$Xi
   } else {
-    set.seed(123)
-    U_init <- qr.Q(qr(matrix(runif(D * K, -2, 2), nrow = D)))
+    U_init  <- qr.Q(qr(matrix(runif(D * K, -2, 2), nrow = D)))
     Xi_init <- matrix(0, nrow = N, ncol = K)
     for (k in 1:K) {
-      set.seed(123)
       Xi_init[, k] <- rnorm(N, sd = 0.1 / sqrt(k))
     }
   }
@@ -95,10 +97,26 @@ Riemann <- function(
   B_grid <- basis_data$B_grid
   S <- t(B_grid) %*% B_grid
   DFu <- sum(diag(S %*% solve(S + lambda * orthP))) * K
-  aDF <- DFu + sum(N / (1 + (0:(K - 1))^2 * tau))
+  aDF <- DFu + sum(N / (1 + rw * tau))
 
   AIC <- NN * log(result$fval / NN) + aDF
   AIC_K <- NN * log(sig2) + NN + 2 * N * K
+
+  df_total <- 0
+
+  for (i in 1:N) {
+
+    Psi_i <- orthB_list[[i]] %*% U_final
+
+    G_i <- crossprod(Psi_i)
+
+    A_i <- solve(G_i + tau * diag(rw), G_i)
+
+    df_total <- df_total + sum(diag(A_i))
+  }
+
+  gcv <- result$fval / (NN - df_total)^2
+
 
   total_var <- sum(sapply(y_vec_list, var))
   var_explained <- cumsum(eigenvalues) / total_var
@@ -106,7 +124,7 @@ Riemann <- function(
   list(
     solver = method, U = U_final, U_original = U_original,
     Xi = Xi_final, eigenvalues = eigenvalues, eigenfunctions = eigenfunctions,
-    Phi_mat = Phi_mat, sig2 = sig2, AIC = AIC, AIC_K = AIC_K,
+    Phi_mat = Phi_mat, sig2 = sig2, AIC = AIC, AIC_K = AIC_K, GCV = gcv,
     aDF = aDF, ord = ord, fitted_values = fitted_values, residuals = residuals,
     xHat = xHat, var_explained = var_explained, data = data,
     optimization_result = result, fval = result$fval, iter = result$iter,
