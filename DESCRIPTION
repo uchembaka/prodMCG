@@ -1,7 +1,7 @@
 Package: prodMCG
 Type: Package
-Title: Curve Reconstruction from Sparse Longitudinal Data
-Version: 0.1.0
+Title: Curve Reconstruction and FPCA from Sparse Longitudinal Data
+Version: 1.0.0
 Authors@R: c(
     person(
       "Uche", "Mbaka",
@@ -9,9 +9,9 @@ Authors@R: c(
       role = c("aut", "cre")
     )
   )
-Description: Functional principal component analysis (FPCA) and curve
-  reconstruction for sparse longitudinal data using Riemannian optimization 
-  on the product manifold.
+Description: Curve reconstruction and functional principal component analysis 
+    (FPCA) for sparse longitudinal data using Riemannian optimization on the 
+    product manifold.
 License: GPL (>= 3)
 Encoding: UTF-8
 Depends:
@@ -28,5 +28,4 @@ Imports:
 LinkingTo:
     Rcpp,
     RcppArmadillo
-LazyData: true
 RoxygenNote: 7.3.2
