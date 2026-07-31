@@ -17,14 +17,16 @@ bootstrap_xHat_CI <- function(
     method,
     parallel,
     n_cores,
-    verbose
+    verbose,
+    scores_weights = NULL,
+    seed = NULL
 ) {
 
   data_list_orig <- prep_data$data_list
   N              <- prep_data$n
   G              <- prep_data$G
 
-  boot_solver_control <- list(maxit = 5000, trace = 0, Tolerance = 1e-04)
+  boot_solver_control <- list(maxit = 10000, trace = 0, Tolerance = 1e-03)
   boot_init <- list(U = optimal_fit$U, Xi = optimal_fit$Xi)
 
   fitted_list <- optimal_fit$fitted_values
@@ -36,6 +38,10 @@ bootstrap_xHat_CI <- function(
   }
 
   run_one_bootstrap <- function(b) {
+    if (!is.null(seed)) {
+      set.seed(seed + 30000L + b)
+    }
+
     boot_prep_data <- prep_data
     boot_data_list <- vector("list", N)
 
@@ -73,7 +79,8 @@ bootstrap_xHat_CI <- function(
         init_coef      = boot_init,
         solver         = solver,
         solver_control = boot_solver_control,
-        mu_nbasis      = mu_nbasis
+        mu_nbasis      = mu_nbasis,
+        scores_weights  = scores_weights
       ),
       error = function(e) NULL
     )
@@ -85,16 +92,12 @@ bootstrap_xHat_CI <- function(
   if (parallel) {
     if (is.null(n_cores)) n_cores <- max(1, detectCores() - 1)
     cl <- tryCatch(init_cluster(n_cores), error = function(e) {
-      warning(sprintf("Bootstrap cluster init failed: %s. Falling back to sequential.",
-                      e$message))
+      warning(sprintf("Bootstrap cluster init failed: %s. Falling back to
+                      sequential.", e$message))
       NULL
     })
 
     if (!is.null(cl)) {
-      # if (verbose) {
-      #   cat(sprintf("  Running %d %s bootstrap replicates on %d workers...\n",
-      #               B, method, length(cl)))
-      # }
 
       common_vars <- c(
         "prep_data", "data_list_orig", "fitted_list", "N", "method",
@@ -115,20 +118,17 @@ bootstrap_xHat_CI <- function(
       })
     } else {
       xHat_boot_list <- lapply(seq_len(B), function(b) {
-        # if (verbose && b %% 50 == 0) {
-        #   cat(sprintf("  Bootstrap replicate %d/%d\n", b, B))
-        # }
+        if (verbose && b %% 50 == 0) {
+          cat(sprintf("  Bootstrap replicate %d/%d\n", b, B))
+        }
         run_one_bootstrap(b)
       })
     }
   } else {
-    # if (verbose) {
-    #   cat(sprintf("  Running %d %s bootstrap replicates sequentially...\n", B, method))
-    # }
     xHat_boot_list <- lapply(seq_len(B), function(b) {
-      # if (verbose && b %% 50 == 0) {
-      #   cat(sprintf("  Bootstrap replicate %d/%d\n", b, B))
-      # }
+      if (verbose && b %% 50 == 0) {
+        cat(sprintf("  Bootstrap replicate %d/%d\n", b, B))
+      }
       run_one_bootstrap(b)
     })
   }
@@ -145,9 +145,6 @@ bootstrap_xHat_CI <- function(
     warning(sprintf("Only %d/%d bootstrap replicates succeeded", B_actual, B))
   }
 
-  # if (verbose) {
-  #   cat(sprintf("  Computing quantiles from %d successful replicates\n", B_actual))
-  # }
 
   xHat_array <- array(NA, dim = c(N, G, B_actual))
   for (b in seq_len(B_actual)) {
@@ -156,17 +153,74 @@ bootstrap_xHat_CI <- function(
 
   rm(valid_boots, xHat_boot_list)
 
-  lower_prob <- alpha / 2
-  upper_prob <- 1 - alpha / 2
+  xHat_hat <- optimal_fit$xHat
+
+  sup_dev <- numeric(B_actual)
+
+  sd_hat <- apply(xHat_array, c(1,2), sd, na.rm = TRUE)
+  sd_hat[sd_hat < .Machine$double.eps] <- .Machine$double.eps
+
+  # ------------------------------------------------------------
+  # Global simultaneous band (old implementation)
+  # Retained for reference.
+  # ------------------------------------------------------------
+  #
+  # sup_dev <- numeric(B_actual)
+  #
+  # for (b in seq_len(B_actual)) {
+  #   sup_dev[b] <- max(
+  #     abs((xHat_array[, , b] - xHat_hat) / sd_hat),
+  #     na.rm = TRUE
+  #   )
+  # }
+  #
+  # crit <- quantile(sup_dev, probs = 1 - alpha, na.rm = TRUE)
+  #
+  # xHat_CI <- vector("list", N)
+  # for (i in seq_len(N)) {
+  #   lower <- xHat_hat[i, ] - crit * sd_hat[i, ]
+  #   upper <- xHat_hat[i, ] + crit * sd_hat[i, ]
+  #
+  #   xHat_CI[[i]] <- cbind(lower = lower, upper = upper)
+  # }
+
+  # ------------------------------------------------------------
+  # Subject-specific simultaneous bands
+  # ------------------------------------------------------------
 
   xHat_CI <- vector("list", N)
+
   for (i in seq_len(N)) {
-    subject_matrix <- xHat_array[i, , ]
-    ci_matrix <- t(apply(subject_matrix, 1, quantile,
-                          probs = c(lower_prob, upper_prob), na.rm = TRUE))
-    colnames(ci_matrix) <- c("lower", "upper")
-    xHat_CI[[i]] <- ci_matrix
+
+    sup_dev_i <- numeric(B_actual)
+
+    for (b in seq_len(B_actual)) {
+
+      sup_dev_i[b] <- max(
+        abs(
+          (xHat_array[i, , b] - xHat_hat[i, ]) /
+            sd_hat[i, ]
+        ),
+        na.rm = TRUE
+      )
+
+    }
+
+    crit_i <- quantile(
+      sup_dev_i,
+      probs = 1 - alpha,
+      na.rm = TRUE
+    )
+
+    lower <- xHat_hat[i, ] - crit_i * sd_hat[i, ]
+    upper <- xHat_hat[i, ] + crit_i * sd_hat[i, ]
+
+    xHat_CI[[i]] <- cbind(
+      lower = lower,
+      upper = upper
+    )
   }
 
-  xHat_CI
+  return(xHat_CI)
+
 }
