@@ -11,9 +11,16 @@ preprocess_data <- function(data, basis_type = "bspline", G = 101, obs_range = c
   data <- data[order(data[, "ID"], data[, "time"]), ]
   data[, "time"] <- (data[, "time"] - aT) / (bT - aT)
 
+  # Remap arbitrary subject IDs to 1:N
   subject_ids <- unique(data[, "ID"])
   N <- length(subject_ids)
+  id_map <- setNames(seq_len(N), subject_ids)
+  data[, "ID"] <- id_map[as.character(data[, "ID"])]
+  subject_ids <- seq_len(N)
   grid <- seq(0, 1, length.out = G)
+  # subject_ids <- unique(data[, "ID"])
+  # N <- length(subject_ids)
+
 
   mean_result <- get_mean(data = data, estGrid = grid, type = basis_type, knots = mu_nbasis, lambdaVec = NULL)
   mu_fits <- mean_result$fits
@@ -61,9 +68,9 @@ get_basis_terms <- function(nbasis, basis_type, G, data_list) {
   N <- length(data_list)
 
   if (basis_type == "bspline") {
-    basis <- create.bspline.basis(rangeval = c(0, 1), nbasis = nbasis, norder = 4)
+    basis <- fda::create.bspline.basis(rangeval = c(0, 1), nbasis = nbasis, norder = 4)
   } else {
-    basis <- create.fourier.basis(rangeval = c(0, 1), nbasis = nbasis)
+    basis <- fda::create.fourier.basis(rangeval = c(0, 1), nbasis = nbasis)
   }
 
   B_grid <- eval.basis(grid, basis)
@@ -76,7 +83,7 @@ get_basis_terms <- function(nbasis, basis_type, G, data_list) {
   for (i in 1:N) {
     sub_i <- data_list[[i]]
     if (nrow(sub_i) > 0) {
-      Bi <- eval.basis(sub_i[, "time"], basis)
+      Bi <- fda::eval.basis(sub_i[, "time"], basis)
       orthB_list[[i]] <- Bi %*% Gram_mat
       y_vec_list[[i]] <- sub_i[, "centered_value"]
     } else {
@@ -86,9 +93,9 @@ get_basis_terms <- function(nbasis, basis_type, G, data_list) {
   }
 
   if (basis_type != "bspline") {
-    P <- fourierpen(basis, Lfdobj = 2)
+    P <- fda::fourierpen(basis, Lfdobj = 2)
   } else {
-    P <- bsplinepen(basis, Lfdobj = 2)
+    P <- fda::bsplinepen(basis, Lfdobj = 2)
   }
 
   orthP <- t(Gram_mat) %*% P %*% Gram_mat
@@ -138,17 +145,17 @@ get_mean <- function(data, estGrid, type = "bspline", knots = NULL, lambdaVec = 
   wk_ind <- data[, 2]
 
   if (type == "bspline") {
-    basis <- create.bspline.basis(rangeval = c(0, 1), nbasis = knots)
+    basis <- fda::create.bspline.basis(rangeval = c(0, 1), nbasis = knots)
   } else {
-    basis <- create.fourier.basis(rangeval = c(0, 1), nbasis = knots)
+    basis <- fda::create.fourier.basis(rangeval = c(0, 1), nbasis = knots)
   }
 
   gcv_vec <- numeric(length(lambdaVec))
   fdPar_list <- vector("list", length(lambdaVec))
 
   for (i in seq_along(lambdaVec)) {
-    fdParobj <- fdPar(fdobj = basis, Lfdobj = 2, lambda = lambdaVec[i])
-    smooth <- smooth.basis(argvals = wk_ind, y = raw_data, fdParobj = fdParobj)
+    fdParobj <- fda::fdPar(fdobj = basis, Lfdobj = 2, lambda = lambdaVec[i])
+    smooth <- fda::smooth.basis(argvals = wk_ind, y = raw_data, fdParobj = fdParobj)
     gcv_vec[i] <- smooth$gcv
     fdPar_list[[i]] <- fdParobj
   }
@@ -156,9 +163,9 @@ get_mean <- function(data, estGrid, type = "bspline", knots = NULL, lambdaVec = 
   best_idx <- which.min(gcv_vec)
   lam <- lambdaVec[best_idx]
   fdParobj <- fdPar_list[[best_idx]]
-  fdobj <- smooth.basis(argvals = wk_ind, y = raw_data, fdParobj = fdParobj)
-  mu <- eval.basis(grid, basis) %*% fdobj$fd$coefs
-  fits <- eval.basis(wk_ind, basis) %*% fdobj$fd$coefs
+  fdobj <- fda::smooth.basis(argvals = wk_ind, y = raw_data, fdParobj = fdParobj)
+  mu <- fda::eval.basis(grid, basis) %*% fdobj$fd$coefs
+  fits <- fda::eval.basis(wk_ind, basis) %*% fdobj$fd$coefs
 
   list(mu = mu, fits = fits, basis = basis, fdobj = fdobj, lambda = lam)
 }
@@ -180,15 +187,15 @@ obs_range_reset <- function(result, basis_type, obs_range, G, mu_nbasis) {
   grid <- seq(obs_range[1], obs_range[2], length = G)
 
   if (basis_type == "bspline") {
-    mu_rng_basis <- create.bspline.basis(obs_range, mu_nbasis, norder = 4)
-    eig_rng_basis <- create.bspline.basis(obs_range, D, norder = 4)
+    mu_rng_basis <- fda::create.bspline.basis(obs_range, mu_nbasis, norder = 4)
+    eig_rng_basis <- fda::create.bspline.basis(obs_range, D, norder = 4)
   } else {
-    mu_rng_basis <- create.fourier.basis(obs_range, mu_nbasis)
-    eig_rng_basis <- create.fourier.basis(obs_range, D)
+    mu_rng_basis <- fda::create.fourier.basis(obs_range, mu_nbasis)
+    eig_rng_basis <- fda::create.fourier.basis(obs_range, D)
   }
 
   eigenfunctions <- lapply(1:K, function(k) fd(result$U_original[, k], eig_rng_basis))
-  mu_fd <- fd(result$data$prep_data$mean_estimation$fdobj$fd$coefs, mu_rng_basis)
+  mu_fd <- fda::fd(result$data$prep_data$mean_estimation$fdobj$fd$coefs, mu_rng_basis)
 
   list(grid = grid, mu_fd = mu_fd, eigenfunctions = eigenfunctions)
 }
