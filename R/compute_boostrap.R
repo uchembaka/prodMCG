@@ -55,7 +55,7 @@ compute_bootstrap <- function(
     n_cores        = n_cores,
     verbose        = verbose,
     scores_weights = fit_obj$scores_weights,
-    seed           = fit_obj$seed
+    seed = fit_obj$call_args$seed
   )
 
   return(Xhat_CI)
