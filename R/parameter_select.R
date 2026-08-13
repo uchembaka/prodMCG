@@ -1,6 +1,6 @@
 # Initialize a parallel cluster with prodMCG loaded
 init_cluster <- function(n_cores) {
-  cl <- makeCluster(n_cores)
+  cl <- makeCluster(n_cores, type = "PSOCK")
   tryCatch({
     clusterEvalQ(cl, { library(prodMCG) })
   }, error = function(e) {
@@ -116,17 +116,34 @@ select_tau_eigen_order <- function(
     #                       identical(as.integer(fit$ord), 1:npc) else NA
     #   ))
     # }
+    # for (i in seq_along(tau_seq)) {
+    #   fit <- fit_one_tau(i)
+    #   fits_list[[i]] <- fit
+    #   tau_tab <- rbind(tau_tab, data.frame(
+    #     tau           = tau_val,
+    #     fval          = if (!is.null(fit)) fit$fval          %||% NA else NA,
+    #     convergence   = if (!is.null(fit)) fit$convergence   %||% NA else NA,
+    #     iter          = if (!is.null(fit)) fit$iter          %||% NA else NA,
+    #     correct_order = if (!is.null(fit))
+    #                       identical(as.integer(fit$ord), 1:npc) else NA
+    #   ))
+    # }
     for (i in seq_along(tau_seq)) {
-      fit <- fit_one_tau(i)
-      fits_list[[i]] <- fit
-      tau_tab <- rbind(tau_tab, data.frame(
-        tau           = tau_val,
-        fval          = if (!is.null(fit)) fit$fval          %||% NA else NA,
-        convergence   = if (!is.null(fit)) fit$convergence   %||% NA else NA,
-        iter          = if (!is.null(fit)) fit$iter          %||% NA else NA,
-        correct_order = if (!is.null(fit))
-                          identical(as.integer(fit$ord), 1:npc) else NA
-      ))
+
+      res <- fit_one_tau(i)
+
+      fits_list[[i]] <- res
+
+      tau_tab <- rbind(
+        tau_tab,
+        data.frame(
+          tau = res$tau,
+          fval = res$fval,
+          convergence = res$convergence,
+          iter = res$iter,
+          correct_order = res$correct_order
+        )
+      )
     }
     selected_fit_fn <- function(idx) fits_list[[idx]]$fit
   }
