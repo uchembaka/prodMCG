@@ -1,4 +1,4 @@
-# Parametric or residual bootstrap confidence intervals for reconstructed trajectories
+# Parametric or residual bootstrap simultaneous uncertainty bands for reconstructed trajectories
 #' @keywords internal
 bootstrap_xHat_CI <- function(
     optimal_fit,
@@ -137,7 +137,7 @@ bootstrap_xHat_CI <- function(
   B_actual    <- length(valid_boots)
 
   if (B_actual < 2) {
-    warning("Fewer than 2 bootstrap replicates succeeded; cannot compute CIs")
+    warning("Fewer than 2 bootstrap replicates succeeded; cannot compute uncertainty bands")
     return(NULL)
   }
 

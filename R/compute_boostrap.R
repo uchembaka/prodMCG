@@ -1,11 +1,13 @@
-#' Compute bootstrap confidence intervals for reconstructed functions
+#' Compute bootstrap uncertainty bands for reconstructed functions
 #'
-#' Generates pointwise bootstrap confidence intervals for the estimated curves
-#' (\eqn{\hat{x}_i(t)}) from a fitted \code{reconstructSparseFuncs} object.
+#' Generates subject-specific studentized simultaneous uncertainty bands
+#' for the estimated curves (\eqn{\hat{x}_i(t)}) from a fitted
+#' \code{reconstructSparseFuncs} object.
 #'
 #' @param fit_obj A fitted object returned by \code{\link{reconstructSparseFuncs}}.
 #' @param B Integer. Number of bootstrap replicates (default 200).
-#' @param alpha Numeric. Significance level for (1-alpha)*100\% CIs (default 0.05).
+#' @param alpha Numeric. Significance level for the (1-alpha)*100\% simultaneous
+#'   uncertainty bands (default 0.05).
 #' @param method Character. Bootstrap method: \code{"parametric"} (default) or
 #'   \code{"residual"}.
 #' @param parallel Logical. Use parallel computation (default TRUE).
@@ -13,7 +15,8 @@
 #' @param verbose Logical. Print progress messages (default FALSE).
 #'
 #' @return A list of N matrices, each G x 2 with columns \code{"lower"} and
-#'   \code{"upper"} for pointwise bootstrap confidence intervals.
+#'   \code{"upper"} containing the subject-specific studentized simultaneous
+#'   uncertainty bands.
 #'
 #' @seealso \code{\link{reconstructSparseFuncs}}
 #' @export
