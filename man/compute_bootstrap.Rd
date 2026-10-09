@@ -2,7 +2,7 @@
 % Please edit documentation in R/compute_boostrap.R
 \name{compute_bootstrap}
 \alias{compute_bootstrap}
-\title{Compute bootstrap confidence intervals for reconstructed functions}
+\title{Compute bootstrap uncertainty bands for reconstructed functions}
 \usage{
 compute_bootstrap(
   fit_obj,
@@ -19,7 +19,8 @@ compute_bootstrap(
 
 \item{B}{Integer. Number of bootstrap replicates (default 200).}
 
-\item{alpha}{Numeric. Significance level for (1-alpha)*100\% CIs (default 0.05).}
+\item{alpha}{Numeric. Significance level for the (1-alpha)*100\% simultaneous
+uncertainty bands (default 0.05).}
 
 \item{method}{Character. Bootstrap method: \code{"parametric"} (default) or
 \code{"residual"}.}
@@ -32,11 +33,13 @@ compute_bootstrap(
 }
 \value{
 A list of N matrices, each G x 2 with columns \code{"lower"} and
-  \code{"upper"} for pointwise bootstrap confidence intervals.
+  \code{"upper"} containing the subject-specific studentized simultaneous
+  uncertainty bands.
 }
 \description{
-Generates pointwise bootstrap confidence intervals for the estimated curves
-(\eqn{\hat{x}_i(t)}) from a fitted \code{reconstructSparseFuncs} object.
+Generates subject-specific studentized simultaneous uncertainty bands
+for the estimated curves (\eqn{\hat{x}_i(t)}) from a fitted
+\code{reconstructSparseFuncs} object.
 }
 \seealso{
 \code{\link{reconstructSparseFuncs}}

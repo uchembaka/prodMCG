@@ -277,7 +277,7 @@ select_npc_aic <- function(
 select_lambda_LRPsOCV <- function(
     data, nbasis_val, npc_val, lambda_seq, tau, grid_size,
     basis_type, solver, solver_control, init_coef, mu_nbasis,
-    R = 1, h = 1, m_min = 3,
+    R = 10, holdout_prop = 0.2, m_min = 3,
     seed = NULL, verbose = FALSE,
     parallel = FALSE, n_cores = NULL, cl = NULL,
     scores_weights = NULL
@@ -299,14 +299,37 @@ select_lambda_LRPsOCV <- function(
       data_reduced     <- data
       held_out_indices <- vector("list", N)
 
+      # for (i in seq_len(N)) {
+      #   sub_i <- data$data_list[[i]]
+      #   n_i   <- nrow(sub_i)
+      #   if (n_i < m_min) next
+      #   h_i     <- min(h, n_i - 2L)
+      #   I_test  <- sort(sample.int(n_i, h_i))
+      #   held_out_indices[[i]]       <- I_test
+      #   data_reduced$data_list[[i]] <- sub_i[setdiff(seq_len(n_i), I_test), , drop = FALSE]
+      # }
+
       for (i in seq_len(N)) {
+
         sub_i <- data$data_list[[i]]
         n_i   <- nrow(sub_i)
+
         if (n_i < m_min) next
-        h_i     <- min(h, n_i - 2L)
-        I_test  <- sort(sample.int(n_i, h_i))
-        held_out_indices[[i]]       <- I_test
-        data_reduced$data_list[[i]] <- sub_i[setdiff(seq_len(n_i), I_test), , drop = FALSE]
+
+        h_i <- floor(holdout_prop * n_i)
+        h_i <- max(1L, h_i)
+        h_i <- min(h_i, n_i - 2L)
+
+        I_test <- sort(sample.int(n_i, h_i))
+
+        held_out_indices[[i]] <- I_test
+
+        data_reduced$data_list[[i]] <-
+          sub_i[
+            setdiff(seq_len(n_i), I_test),
+            ,
+            drop = FALSE
+          ]
       }
 
       fit <- tryCatch(
@@ -352,7 +375,7 @@ select_lambda_LRPsOCV <- function(
       clusterExport(cl, varlist = c(
         "data", "nbasis_val", "npc_val", "lambda_seq", "tau",
         "basis_type", "grid_size", "init_coef", "solver", "solver_control",
-        "mu_nbasis", "scores_weights", "R", "h", "m_min", "seed", "N",
+        "mu_nbasis", "scores_weights", "R", "holdout_prop", "m_min", "seed", "N",
         "Gram_mat", "basis_obj"
       ), envir = environment())
       parLapply(cl, lam_indices, LRPsOCV_one_lambda)
@@ -397,7 +420,7 @@ select_lambda_LRPsOCV <- function(
 select_nbasis_LRPsOCV <- function(
     data, nbasis_seq, npc_val, lambda_val, tau, grid_size,
     basis_type, solver, solver_control, init_coef, mu_nbasis,
-    R = 1, h = 1, m_min = 3,
+    R = 10, holdout_prop = 0.2, m_min = 3,
     seed = NULL, verbose = FALSE,
     parallel = FALSE, n_cores = NULL, cl = NULL,
     scores_weights = NULL
@@ -421,14 +444,37 @@ select_nbasis_LRPsOCV <- function(
       data_reduced     <- data
       held_out_indices <- vector("list", N)
 
+      # for (i in seq_len(N)) {
+      #   sub_i <- data$data_list[[i]]
+      #   n_i   <- nrow(sub_i)
+      #   if (n_i < m_min) next
+      #   h_i     <- min(h, n_i - 2L)
+      #   I_test  <- sort(sample.int(n_i, h_i))
+      #   held_out_indices[[i]]       <- I_test
+      #   data_reduced$data_list[[i]] <- sub_i[setdiff(seq_len(n_i), I_test), , drop = FALSE]
+      # }
+
       for (i in seq_len(N)) {
+
         sub_i <- data$data_list[[i]]
         n_i   <- nrow(sub_i)
+
         if (n_i < m_min) next
-        h_i     <- min(h, n_i - 2L)
-        I_test  <- sort(sample.int(n_i, h_i))
-        held_out_indices[[i]]       <- I_test
-        data_reduced$data_list[[i]] <- sub_i[setdiff(seq_len(n_i), I_test), , drop = FALSE]
+
+        h_i <- floor(holdout_prop * n_i)
+        h_i <- max(1L, h_i)
+        h_i <- min(h_i, n_i - 2L)
+
+        I_test <- sort(sample.int(n_i, h_i))
+
+        held_out_indices[[i]] <- I_test
+
+        data_reduced$data_list[[i]] <-
+          sub_i[
+            setdiff(seq_len(n_i), I_test),
+            ,
+            drop = FALSE
+          ]
       }
 
       fit <- tryCatch(
@@ -474,7 +520,7 @@ select_nbasis_LRPsOCV <- function(
       clusterExport(cl, varlist = c(
         "data", "nbasis_seq", "npc_val", "lambda_val", "tau",
         "basis_type", "grid_size", "init_coef", "solver", "solver_control",
-        "mu_nbasis", "scores_weights", "R", "h", "m_min", "seed", "N"
+        "mu_nbasis", "scores_weights", "R", "holdout_prop", "m_min", "seed", "N"
       ), envir = environment())
       parLapply(cl, nb_indices, LRPsOCV_one_nbasis)
     }, finally = {
@@ -524,7 +570,7 @@ select_grid_LRPsOCV <- function(
     mode = "npc_lambda",
     fixed_nbasis = NULL,
     fixed_lambda = 1e-6,
-    R = 1, h = 1, m_min = 3,
+    R = 10, holdout_prop = 0.2, m_min = 3,
     seed = NULL, verbose = FALSE,
     parallel = FALSE, n_cores = NULL, cl = NULL,
     scores_weights = NULL
@@ -587,14 +633,37 @@ select_grid_LRPsOCV <- function(
       data_reduced     <- data
       held_out_indices <- vector("list", N)
 
+      # for (i in seq_len(N)) {
+      #   sub_i <- data$data_list[[i]]
+      #   n_i   <- nrow(sub_i)
+      #   if (n_i < m_min) next
+      #   h_i     <- min(h, n_i - 2L)
+      #   I_test  <- sort(sample.int(n_i, h_i))
+      #   held_out_indices[[i]]       <- I_test
+      #   data_reduced$data_list[[i]] <- sub_i[setdiff(seq_len(n_i), I_test), , drop = FALSE]
+      # }
+
       for (i in seq_len(N)) {
+
         sub_i <- data$data_list[[i]]
         n_i   <- nrow(sub_i)
+
         if (n_i < m_min) next
-        h_i     <- min(h, n_i - 2L)
-        I_test  <- sort(sample.int(n_i, h_i))
-        held_out_indices[[i]]       <- I_test
-        data_reduced$data_list[[i]] <- sub_i[setdiff(seq_len(n_i), I_test), , drop = FALSE]
+
+        h_i <- floor(holdout_prop * n_i)
+        h_i <- max(1L, h_i)
+        h_i <- min(h_i, n_i - 2L)
+
+        I_test <- sort(sample.int(n_i, h_i))
+
+        held_out_indices[[i]] <- I_test
+
+        data_reduced$data_list[[i]] <-
+          sub_i[
+            setdiff(seq_len(n_i), I_test),
+            ,
+            drop = FALSE
+          ]
       }
 
       fit <- tryCatch(
@@ -640,7 +709,7 @@ select_grid_LRPsOCV <- function(
       clusterExport(cl, varlist = c(
         "data", "tau", "basis_type", "grid_size", "init_coef", "solver",
         "solver_control", "mu_nbasis", "scores_weights",
-        "R", "h", "m_min", "seed", "N", "mode",
+        "R", "holdout_prop", "m_min", "seed", "N", "mode",
         "fixed_nbasis", "fixed_lambda", "grid_pairs", "basis_fixed"
       ), envir = environment())
       parLapply(cl, pair_indices, LRPsOCV_one_pair)

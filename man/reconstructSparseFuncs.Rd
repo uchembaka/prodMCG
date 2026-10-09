@@ -21,7 +21,7 @@ reconstructSparseFuncs(
   mu_nbasis = 15,
   parallel = TRUE,
   n_cores = NULL,
-  LRPsOCV_parameters = list(R = 1, h = 1, m_min = 3, grid_search = FALSE),
+  LRPsOCV_parameters = list(R = 10, holdout_prop = 0.2, m_min = 3, grid_search = FALSE),
   seed = NULL,
   scores_weights = NULL,
   two_stage = TRUE,
@@ -59,7 +59,7 @@ tau is selected via eigenvalue ordering and convergence checking.}
 
 \item{solver_control}{List with solver control parameters:
 \itemize{
-  \item \code{maxit}: Maximum iterations (default 150000).
+  \item \code{maxit}: Maximum iterations (default 50000).
   \item \code{trace}: Debug level (default 0).
   \item \code{Tolerance}: Convergence tolerance (default 1e-4).
 }
